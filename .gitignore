@@ -1,0 +1,10 @@
+firebase-key.json
+.env
+sofa_config.json
+sofa_history.json
+sofa_tags.json
+previews/
+__pycache__/
+*.pyc
+*.pdf
+desktop.ini

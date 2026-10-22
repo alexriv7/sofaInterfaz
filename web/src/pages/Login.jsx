@@ -9,6 +9,8 @@ const ERRORS = {
   "auth/too-many-requests": "Demasiados intentos, prueba más tarde",
 };
 
+const isPermissionError = (err) => String(err?.code || err?.message).includes("PERMISSION_DENIED");
+
 export default function Login() {
   const { login, register, resetPassword } = useAuth();
   const [mode, setMode] = useState("login");
@@ -28,7 +30,9 @@ export default function Login() {
       if (mode === "login") await login(email, password);
       else await register(email, password, username.trim());
     } catch (err) {
-      setError(ERRORS[err.code] || err.message);
+      setError(ERRORS[err.code] || (isPermissionError(err)
+        ? "Firebase rechazó el registro (permiso denegado). Revisa que las reglas de database.rules.json estén publicadas."
+        : err.message));
     } finally {
       setBusy(false);
     }

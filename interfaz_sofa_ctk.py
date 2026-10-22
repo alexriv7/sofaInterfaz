@@ -1,5 +1,5 @@
 """
-interfaz_sofa_ctk.py  –  SOFA Manager v4.0
+interfaz_sofa_ctk.py  –  SOFA Manager v4.1
 Interfaz moderna con CustomTkinter (dark/light mode).
 Requiere: firebase_handler.py, firebase-key.json y .env en el mismo directorio.
 Instalar: pip install customtkinter pillow plyer firebase-admin python-dotenv
@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict
@@ -22,6 +23,80 @@ from firebase_handler import FirebaseManager
 # ── Tema global ──────────────────────────────────────────────────────────────
 ctk.set_appearance_mode("dark")          # "dark" | "light" | "system"
 ctk.set_default_color_theme("blue")
+
+
+# ===========================================================================
+# Splash Screen
+# ===========================================================================
+
+class SplashScreen(ctk.CTkToplevel):
+    """Pantalla de bienvenida animada que se muestra al iniciar."""
+
+    def __init__(self):
+        super().__init__()
+        self.overrideredirect(True)          # sin bordes
+        self.attributes("-topmost", True)
+
+        W, H = 480, 300
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        self.geometry(f"{W}x{H}+{(sw-W)//2}+{(sh-H)//2}")
+
+        # Fondo
+        bg = ctk.CTkFrame(self, fg_color="#0d1117", corner_radius=16)
+        bg.pack(fill="both", expand=True)
+
+        # Logo / icono
+        ctk.CTkLabel(
+            bg, text="🧬",
+            font=ctk.CTkFont(size=64),
+        ).pack(pady=(40, 8))
+
+        ctk.CTkLabel(
+            bg, text="SOFA Manager",
+            font=ctk.CTkFont(size=28, weight="bold"),
+            text_color="white",
+        ).pack()
+
+        ctk.CTkLabel(
+            bg, text="v4.1  –  Simulation Open Framework Architecture",
+            font=ctk.CTkFont(size=12),
+            text_color="#58a6ff",
+        ).pack(pady=(4, 24))
+
+        # Barra de progreso animada
+        self._bar = ctk.CTkProgressBar(bg, width=320, height=6,
+                                        corner_radius=3,
+                                        fg_color="#21262d",
+                                        progress_color="#58a6ff")
+        self._bar.set(0)
+        self._bar.pack()
+
+        self._status = ctk.CTkLabel(
+            bg, text="Iniciando…",
+            font=ctk.CTkFont(size=11),
+            text_color="#8b949e",
+        )
+        self._status.pack(pady=(8, 0))
+
+        self.update()
+        self._animate()
+
+    def _animate(self):
+        steps = [
+            (0.2, "Cargando configuración…"),
+            (0.5, "Conectando a Firebase…"),
+            (0.75, "Cargando ejemplos…"),
+            (1.0, "¡Listo!"),
+        ]
+        for val, msg in steps:
+            self._bar.set(val)
+            self._status.configure(text=msg)
+            self.update()
+            time.sleep(0.45)
+
+    def close(self):
+        self.destroy()
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +196,7 @@ class SOFAInterface:
 
         self._build_ui()
         self._setup_notifications()
+        self._setup_keybindings()
         self._load_history()
         self._load_examples()
         self._verify_installation()
@@ -222,8 +298,49 @@ class SOFAInterface:
         self._theme_switch.pack(padx=12, pady=4)
 
         # ── Panel principal derecho ──────────────────────────────────────────
-        self.main_area = ctk.CTkFrame(self.root, corner_radius=0, fg_color="transparent")
-        self.main_area.pack(side="left", fill="both", expand=True, padx=0)
+        right_area = ctk.CTkFrame(self.root, corner_radius=0, fg_color="transparent")
+        right_area.pack(side="left", fill="both", expand=True)
+
+        # Header global: muestra el ejemplo activo
+        self._global_header = ctk.CTkFrame(right_area, height=52, fg_color="#161b22",
+                                            corner_radius=0)
+        self._global_header.pack(fill="x")
+        self._global_header.pack_propagate(False)
+
+        self._header_icon = ctk.CTkLabel(
+            self._global_header, text="📂",
+            font=ctk.CTkFont(size=20),
+        )
+        self._header_icon.pack(side="left", padx=(16, 6), pady=12)
+
+        self._header_example_label = ctk.CTkLabel(
+            self._global_header,
+            text="Ningún ejemplo seleccionado",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color="#c9d1d9",
+        )
+        self._header_example_label.pack(side="left", pady=12)
+
+        self._header_run_btn = ctk.CTkButton(
+            self._global_header,
+            text="▶  Abrir en SOFA",
+            width=140, height=32,
+            font=ctk.CTkFont(size=12),
+            command=self._open_example,
+            state="disabled",
+        )
+        self._header_run_btn.pack(side="right", padx=16, pady=10)
+
+        ctk.CTkLabel(
+            self._global_header,
+            text="Enter = abrir  ·  Ctrl+F = buscar  ·  F5 = actualizar",
+            font=ctk.CTkFont(size=10),
+            text_color="#484f58",
+        ).pack(side="right", padx=8)
+
+        # Área de contenido
+        self.main_area = ctk.CTkFrame(right_area, corner_radius=0, fg_color="transparent")
+        self.main_area.pack(fill="both", expand=True)
 
         # Construir todas las pestañas (solo una visible a la vez)
         self._tabs: Dict[str, ctk.CTkFrame] = {}
@@ -660,6 +777,11 @@ class SOFAInterface:
 
     def _select_example(self, example_name: str):
         self.current_example = example_name
+        # Actualizar header global
+        short = os.path.basename(example_name)
+        self._header_example_label.configure(text=short, text_color="#58a6ff")
+        self._header_icon.configure(text="🟢")
+        self._header_run_btn.configure(state="normal")
         self._show_preview(example_name)
         self._update_favorite_button()
         self._render_tag_chips()
@@ -1576,6 +1698,29 @@ class SOFAInterface:
         self.root.destroy()
 
     # =========================================================================
+    # Atajos de teclado
+    # =========================================================================
+
+    def _setup_keybindings(self):
+        self.root.bind("<Return>",   lambda e: self._open_example())
+        self.root.bind("<F5>",       lambda e: self._load_examples())
+        self.root.bind("<Control-f>",lambda e: self._focus_search())
+        self.root.bind("<Control-F>",lambda e: self._focus_search())
+        self.root.bind("<F1>",       lambda e: self._switch_tab("examples"))
+        self.root.bind("<F2>",       lambda e: self._switch_tab("history"))
+        self.root.bind("<F3>",       lambda e: self._switch_tab("console"))
+
+    def _focus_search(self):
+        self._switch_tab("examples")
+        # Dar foco al campo de búsqueda
+        try:
+            for w in self._tabs["examples"].winfo_children():
+                pass  # navegar es suficiente; el entry se activa con la siguiente línea
+            self._search_var.set("")
+        except Exception:
+            pass
+
+    # =========================================================================
     # Exportar notas
     # =========================================================================
 
@@ -1643,7 +1788,18 @@ class SOFAInterface:
 
 def main():
     root = ctk.CTk()
-    SOFAInterface(root)
+    root.withdraw()   # ocultar ventana principal mientras carga
+
+    # Mostrar splash
+    splash = SplashScreen()
+    splash.update()
+
+    # Construir la app (mientras el splash está visible)
+    app = SOFAInterface(root)
+
+    # Cerrar splash y mostrar app
+    splash.close()
+    root.deiconify()
     root.mainloop()
 
 

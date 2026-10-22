@@ -80,20 +80,22 @@ class SplashScreen(ctk.CTkToplevel):
         self._status.pack(pady=(8, 0))
 
         self.update()
+        self._step = 0
+        self._steps = [
+            (0.15, "Cargando configuración…"),
+            (0.40, "Conectando a Firebase…"),
+            (0.70, "Cargando ejemplos…"),
+            (1.00, "¡Listo!"),
+        ]
         self._animate()
 
     def _animate(self):
-        steps = [
-            (0.2, "Cargando configuración…"),
-            (0.5, "Conectando a Firebase…"),
-            (0.75, "Cargando ejemplos…"),
-            (1.0, "¡Listo!"),
-        ]
-        for val, msg in steps:
+        if self._step < len(self._steps):
+            val, msg = self._steps[self._step]
             self._bar.set(val)
             self._status.configure(text=msg)
-            self.update()
-            time.sleep(0.45)
+            self._step += 1
+            self.after(500, self._animate)
 
     def close(self):
         self.destroy()
@@ -1788,18 +1790,16 @@ class SOFAInterface:
 
 def main():
     root = ctk.CTk()
-    root.withdraw()   # ocultar ventana principal mientras carga
+    root.withdraw()   # ocultar ventana principal mientras carga el splash
 
-    # Mostrar splash
     splash = SplashScreen()
-    splash.update()
 
-    # Construir la app (mientras el splash está visible)
-    app = SOFAInterface(root)
+    def _start_app():
+        splash.close()
+        app = SOFAInterface(root)  # noqa: F841
+        root.deiconify()
 
-    # Cerrar splash y mostrar app
-    splash.close()
-    root.deiconify()
+    root.after(2200, _start_app)   # 2.2 s — tiempo del splash
     root.mainloop()
 
 

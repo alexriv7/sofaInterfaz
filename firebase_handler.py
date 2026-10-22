@@ -31,6 +31,7 @@ class FirebaseManager:
 
         self.ref = db.reference("/sofa_comments")
         self.groups_ref = db.reference("/sofa_groups")
+        self.examples_ref = db.reference("/sofa_examples")
 
     def set_notification_callback(self, callback: Callable):
         """Configura la función a llamar cuando llegue una notificación"""
@@ -52,6 +53,31 @@ class FirebaseManager:
             .replace("]", "_rbracket_")
             .replace("/", "_fwslash_")
         )
+
+    # -----------------------------------------------------------------------
+    # Biblioteca de ejemplos (la consume la web app)
+    # -----------------------------------------------------------------------
+
+    def publish_examples(self, examples: list) -> None:
+        """
+        Publica la lista de ejemplos locales en /sofa_examples para la web app.
+        Hace merge: no borra ejemplos publicados desde otras máquinas.
+
+        Args:
+            examples: Rutas relativas a la carpeta de ejemplos (p. ej. "Demos\\caduceus.scn")
+        """
+        data = {}
+        for rel in examples:
+            parts = rel.replace("\\", "/").split("/")
+            name = parts[-1]
+            data[self._normalize_path(rel)] = {
+                "path": rel,
+                "name": name,
+                "folder": "/".join(parts[:-1]),
+                "ext": name.rsplit(".", 1)[-1].lower() if "." in name else "",
+            }
+        if data:
+            self.examples_ref.update(data)
 
     # -----------------------------------------------------------------------
     # Grupos colaborativos

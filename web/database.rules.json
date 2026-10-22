@@ -1,0 +1,68 @@
+{
+  "rules": {
+    // Perfil de cada cuenta web. El username es la identidad compartida con
+    // la app de escritorio (current_user en sofa_config.json).
+    "sofa_users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid && !data.exists()",
+        ".validate": "newData.hasChildren(['username', 'email']) && root.child('sofa_usernames').child(newData.child('username').val()).val() === auth.uid"
+      }
+    },
+    "sofa_usernames": {
+      ".read": "auth != null",
+      "$username": {
+        ".write": "auth != null && !data.exists() && newData.val() === auth.uid",
+        ".validate": "$username.matches(/^[A-Za-z0-9_-]{3,32}$/)"
+      }
+    },
+
+    // Biblioteca de ejemplos: la publica la app de escritorio (Admin SDK).
+    "sofa_examples": {
+      ".read": "auth != null",
+      ".write": false
+    },
+
+    // Notas globales: /sofa_comments/{ejemplo}/{id}
+    "sofa_comments": {
+      ".read": "auth != null",
+      "$example": {
+        "$commentId": {
+          ".write": "auth != null && ((!data.exists() && newData.child('user').val() === root.child('sofa_users').child(auth.uid).child('username').val()) || (data.exists() && data.child('user').val() === root.child('sofa_users').child(auth.uid).child('username').val() && (!newData.exists() || newData.child('user').val() === data.child('user').val())))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['user', 'text', 'timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 5000)"
+        }
+      }
+    },
+
+    // Grupos: /sofa_groups/{id} = {name, owner, members: {username: true}, created_at}
+    "sofa_groups": {
+      ".read": "auth != null",
+      "$gid": {
+        // Crear: el owner debe ser uno mismo. Borrar/editar: solo el owner.
+        ".write": "auth != null && ((!data.exists() && newData.child('owner').val() === root.child('sofa_users').child(auth.uid).child('username').val()) || (data.exists() && data.child('owner').val() === root.child('sofa_users').child(auth.uid).child('username').val()))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['name', 'owner', 'members']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 80 && newData.child('owner').val() === (data.exists() ? data.child('owner').val() : newData.child('owner').val()))",
+        "members": {
+          "$username": {
+            // Un miembro puede salirse del grupo por su cuenta.
+            ".write": "auth != null && data.exists() && !newData.exists() && $username === root.child('sofa_users').child(auth.uid).child('username').val() && $username !== root.child('sofa_groups').child($gid).child('owner').val()"
+          }
+        }
+      }
+    },
+
+    // Notas de grupo: /sofa_group_comments/{gid}/{ejemplo}/{id}
+    "sofa_group_comments": {
+      "$gid": {
+        ".read": "auth != null && root.child('sofa_groups').child($gid).child('members').child(root.child('sofa_users').child(auth.uid).child('username').val()).exists()",
+        // El owner puede borrar todas las notas al eliminar el grupo.
+        ".write": "auth != null && !newData.exists() && root.child('sofa_groups').child($gid).child('owner').val() === root.child('sofa_users').child(auth.uid).child('username').val()",
+        "$example": {
+          "$commentId": {
+            ".write": "auth != null && root.child('sofa_groups').child($gid).child('members').child(root.child('sofa_users').child(auth.uid).child('username').val()).exists() && ((!data.exists() && newData.child('user').val() === root.child('sofa_users').child(auth.uid).child('username').val()) || (data.exists() && data.child('user').val() === root.child('sofa_users').child(auth.uid).child('username').val() && (!newData.exists() || newData.child('user').val() === data.child('user').val())))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['user', 'text', 'timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 5000)"
+          }
+        }
+      }
+    }
+  }
+}

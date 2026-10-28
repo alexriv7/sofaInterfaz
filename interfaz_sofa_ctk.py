@@ -926,6 +926,14 @@ class SOFAInterface:
                     rel = os.path.relpath(os.path.join(dirpath, f), self.examples_dir)
                     self._all_examples.append(rel)
         self._render_example_list(self._all_examples)
+        if self.firebase:
+            threading.Thread(target=self._publish_examples, daemon=True).start()
+
+    def _publish_examples(self):
+        try:
+            self.firebase.publish_examples(list(self._all_examples))
+        except Exception as exc:
+            print(f"[Firebase] Error al publicar ejemplos: {exc}")
 
     def _filter_examples(self):
         query = self._search_var.get().lower()

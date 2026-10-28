@@ -73,3 +73,10 @@ json
 
 
 
+
+
+## Fase 2: SOFA Manager Web
+
+La carpeta `web/` contiene una web app (React + Firebase) con login, biblioteca de ejemplos,
+notas colaborativas y grupos, compartiendo datos con la app de escritorio.
+Instrucciones en [web/README.md](web/README.md).

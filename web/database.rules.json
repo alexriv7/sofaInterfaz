@@ -12,7 +12,8 @@
     "sofa_usernames": {
       ".read": "auth != null",
       "$username": {
-        ".write": "auth != null && !data.exists() && newData.val() === auth.uid",
+        // Reservar uno libre, o liberar el propio si el registro no terminó (sin perfil).
+        ".write": "auth != null && ((!data.exists() && newData.val() === auth.uid) || (!newData.exists() && data.val() === auth.uid && !root.child('sofa_users').child(auth.uid).exists()))",
         ".validate": "$username.matches(/^[A-Za-z0-9_-]{3,32}$/)"
       }
     },

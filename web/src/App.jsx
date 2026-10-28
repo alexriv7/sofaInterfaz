@@ -26,10 +26,10 @@ function Protected({ children }) {
 }
 
 function AppRoutes() {
-  const { user } = useAuth();
+  const { user, registering } = useAuth();
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/login" element={user && !registering ? <Navigate to="/" replace /> : <Login />} />
       <Route
         element={
           <Protected>
